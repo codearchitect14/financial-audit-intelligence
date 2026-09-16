@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
-    Enum as SAEnum,
     Float,
     ForeignKey,
     Index,
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fai.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -32,9 +35,7 @@ class AuditReport(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "audit_reports"
-    __table_args__ = (
-        Index("ix_audit_reports_org_created_at", "organization_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_audit_reports_org_created_at", "organization_id", "created_at"),)
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True),

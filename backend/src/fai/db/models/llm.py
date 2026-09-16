@@ -8,12 +8,11 @@ logic reads before deciding whether the primary provider still has headroom.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     Index,
     Integer,
@@ -22,7 +21,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fai.db.base import Base, UUIDPrimaryKeyMixin

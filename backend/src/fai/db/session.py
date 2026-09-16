@@ -19,15 +19,37 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from fai.core.config import settings
+
+
+def _async_engine_kwargs() -> dict[str, object]:
+    """Pool configuration for the async engine.
+
+    Under test the pool is disabled entirely. An asyncpg connection is bound to
+    the event loop that created it, and the test runner builds a fresh loop per
+    test; a pooled connection therefore gets handed to a later test whose loop
+    is different, and every operation on it fails deep inside the proactor with
+    an error that looks nothing like its cause. NullPool opens and closes a
+    connection per checkout, which removes the sharing entirely.
+
+    This costs one connection setup per request, which is irrelevant in a test
+    suite and would be unacceptable in production, hence the split.
+    """
+    if settings.environment == "ci":
+        return {"poolclass": NullPool}
+    return {
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+        "pool_pre_ping": True,
+    }
+
 
 async_engine = create_async_engine(
     settings.async_database_url,
     echo=settings.db_echo,
-    pool_size=settings.db_pool_size,
-    max_overflow=settings.db_max_overflow,
-    pool_pre_ping=True,
+    **_async_engine_kwargs(),
 )
 
 AsyncSessionLocal = async_sessionmaker(

@@ -10,7 +10,8 @@ dependencies = [
     "python-multipart>=0.0.12",
     "slowapi>=0.1.9",
     # Config and validation
-    "pydantic>=2.9.0",
+    # [email] pulls email-validator, required by pydantic.EmailStr.
+    "pydantic[email]>=2.9.0",
     "pydantic-settings>=2.6.0",
     # Persistence. asyncpg drives the API; psycopg drives Alembic and batch scripts.
     "sqlalchemy[asyncio]>=2.0.36",
@@ -86,3 +87,9 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 markers = ["integration: requires a live database"]
+filterwarnings = [
+    "error::RuntimeWarning",
+    # passlib reads argon2-cffi's __version__, which that package has
+    # deprecated. Nothing actionable here until passlib releases a fix.
+    "ignore:Accessing argon2.__version__:DeprecationWarning",
+]

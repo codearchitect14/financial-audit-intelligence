@@ -1,0 +1,3 @@
+cik,company_name,violation_start,violation_end,aaer_number,match_confidence
+0000001750,AAR CORP,2005-06-01,2007-05-31,AAER-2912,1.00
+0000320193,SAMPLE MATCHED FILER,2019-01-01,2019-12-31,AAER-0000,0.95

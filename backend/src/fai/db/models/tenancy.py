@@ -18,19 +18,22 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     Index,
     String,
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import INET, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from fai.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -57,7 +60,7 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    users: Mapped[list["User"]] = relationship(
+    users: Mapped[list[User]] = relationship(
         back_populates="organization",
         cascade="all, delete-orphan",
         # The foreign key already declares ON DELETE CASCADE. Without
@@ -90,10 +93,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     organization: Mapped[Organization] = relationship(back_populates="users")
-    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
         back_populates="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    documents: Mapped[list["Document"]] = relationship(back_populates="uploader")
+    documents: Mapped[list[Document]] = relationship(back_populates="uploader")
 
 
 class RefreshToken(UUIDPrimaryKeyMixin, Base):

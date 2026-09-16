@@ -70,6 +70,17 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------
+    # Rate limiting
+    # ------------------------------------------------------------------
+    # Disabled in the test suite so that a suite of login cases does not
+    # trip the production limit and fail for the wrong reason.
+    rate_limit_enabled: bool = True
+    # In-process by default, which is exact for a single instance. Point at
+    # a shared Redis before scaling out, or the effective limit multiplies
+    # by the instance count.
+    rate_limit_storage_uri: str = "memory://"
+
+    # ------------------------------------------------------------------
     # LLM providers (Phase 5)
     # ------------------------------------------------------------------
     groq_api_key: SecretStr | None = None

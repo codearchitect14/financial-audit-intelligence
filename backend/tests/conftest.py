@@ -16,6 +16,10 @@ import pytest
 # before the application package is imported.
 os.environ.setdefault("ENVIRONMENT", "ci")
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret-not-used-in-any-deployment")
+# A suite of login cases would otherwise trip the production rate limit and
+# start failing for a reason that has nothing to do with the behaviour under
+# test. The limiter itself is covered by its own test, which enables it.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import httpx
 from fastapi import FastAPI

@@ -15,12 +15,15 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fai.api.router import api_router
 from fai.core.config import Settings, settings
 from fai.core.errors import AppError
 from fai.core.logging import configure_logging, get_logger, request_id_var
+from fai.core.rate_limit import limiter
 
 log = get_logger(__name__)
 
@@ -82,6 +85,11 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json",
     )
 
+    # Rate limiting. The limiter object is attached to app.state because
+    # slowapi's decorator resolves it from there at request time.
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+
     # An explicit origin allowlist, never a wildcard: credentialed requests
     # with "*" are rejected by browsers anyway, and a wildcard here would be a
     # silent invitation to relax it later.
@@ -129,6 +137,20 @@ def create_app() -> FastAPI:
             request_id=request_id,
         )
         return response
+
+    @app.exception_handler(RateLimitExceeded)
+    async def handle_rate_limit(_request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        """Render slowapi's own exception in the shared error envelope."""
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={
+                "error": {
+                    "code": "rate_limited",
+                    "message": "Too many requests. Please retry later.",
+                    "details": {"limit": str(exc.detail)},
+                }
+            },
+        )
 
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, exc: AppError) -> JSONResponse:
