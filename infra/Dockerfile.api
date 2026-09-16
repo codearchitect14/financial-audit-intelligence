@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1.7
+
+# ---------------------------------------------------------------------------
+# Builder: resolve and install dependencies into a self-contained virtualenv.
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Dependency metadata is copied on its own so that this layer is cached and
+# only re-runs when the dependency set actually changes, not on every edit.
+COPY pyproject.toml uv.lock* ./
+RUN uv venv /opt/venv && \
+    VIRTUAL_ENV=/opt/venv uv pip install --no-cache -r pyproject.toml
+
+# ---------------------------------------------------------------------------
+# Runtime: no build toolchain, no uv, no source-control metadata.
+# ---------------------------------------------------------------------------
+FROM python:3.12-slim AS runtime
+
+# libpq for psycopg, and the Pango/Cairo stack WeasyPrint needs for PDF output.
+RUN apt-get update && apt-get install --no-install-recommends -y \
+        libpq5 \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libcairo2 \
+        libgdk-pixbuf-2.0-0 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Runs unprivileged. A container process that does not need root should not
+# have it, so that a code-execution bug does not immediately own the container.
+RUN groupadd --system --gid 1001 fai && \
+    useradd --system --uid 1001 --gid fai --create-home fai
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+COPY --chown=fai:fai . .
+RUN mkdir -p /app/data/uploads && chown -R fai:fai /app/data
+
+USER fai
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail --silent http://localhost:8000/api/v1/health || exit 1
+
+CMD ["uvicorn", "fai.main:app", "--host", "0.0.0.0", "--port", "8000"]

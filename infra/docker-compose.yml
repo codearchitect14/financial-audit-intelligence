@@ -1,0 +1,77 @@
+name: financial-audit-intelligence
+
+services:
+  db:
+    # The pgvector image is plain Postgres 16 with the extension compiled in.
+    # Pinned to a digest-stable tag: an unpinned "latest" would silently change
+    # the Postgres major version under an existing data volume.
+    image: pgvector/pgvector:pg16
+    container_name: fai-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fai}
+      POSTGRES_DB: ${POSTGRES_DB:-fai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - fai-db-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Without this, the api container races the database on every cold start
+      # and dies on the first connection attempt.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fai} -d ${POSTGRES_DB:-fai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../infra/Dockerfile.api
+    container_name: fai-api
+    env_file:
+      - ../backend/.env
+    environment:
+      # Overrides the .env value: inside the network the database is "db",
+      # not localhost.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fai}:${POSTGRES_PASSWORD:-fai}@db:5432/${POSTGRES_DB:-fai}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Source is mounted for hot reload in development. The production image
+      # ships the code in the layer instead and does not mount anything.
+      - ../backend/src:/app/src:ro
+      - fai-data:/app/data
+    command: >
+      uvicorn fai.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../infra/Dockerfile.frontend
+    container_name: fai-frontend
+    env_file:
+      - ../frontend/.env
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - api
+    volumes:
+      - ../frontend/src:/app/src:ro
+      - ../frontend/public:/app/public:ro
+    command: npm run dev -- --host 0.0.0.0
+    profiles:
+      # Kept out of the default "up" so that backend-only work does not pay for
+      # a node install. Start it with: docker compose --profile ui up
+      - ui
+    restart: unless-stopped
+
+volumes:
+  fai-db-data:
+  fai-data:

@@ -1,0 +1,14 @@
+# Normalise line endings so the repository content is identical regardless of
+# the contributor's platform. Without this, a Windows checkout commits CRLF and
+# every subsequent diff on another machine shows the whole file as changed.
+* text=auto eol=lf
+
+# Binary and generated files must never be normalised.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.onnx binary
+*.joblib binary
+uv.lock linguist-generated=true

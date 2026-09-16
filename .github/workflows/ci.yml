@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A new push to the same branch makes the in-flight run obsolete. Cancelling it
+# keeps queue time down on the free tier, which has a limited concurrency pool.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        # The same image used locally, so a green CI run means the migration
+        # was verified against the pgvector build it will actually meet.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: fai
+          POSTGRES_PASSWORD: fai
+          POSTGRES_DB: fai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fai -d fai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      ENVIRONMENT: ci
+      DATABASE_URL: postgresql://fai:fai@localhost:5432/fai
+      JWT_SECRET_KEY: ci-only-secret-never-used-in-a-deployment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy src
+
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Verify the migration matches the models
+        # Guards against the most common schema bug: a model changed without a
+        # matching revision, which passes tests locally and breaks the next
+        # deployment.
+        run: uv run alembic check
+
+      - name: Verify the migration is reversible
+        run: |
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+
+      - name: Test
+        run: uv run pytest --cov=fai --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: ignore
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Audit Python dependencies
+        # Audits the resolved lockfile rather than the installed
+        # environment: pip-audit cannot resolve the local editable project
+        # against PyPI, and the lockfile is what a deployment installs.
+        run: |
+          uv export --format requirements-txt --no-emit-project --no-hashes --all-extras -o requirements-audit.txt
+          uv run pip-audit --strict --desc -r requirements-audit.txt
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks needs history to scan commits, not just the tip.
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

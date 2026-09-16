@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# Local-only git safety checklist for this shared machine. Never commit.
+# ---------------------------------------------------------------------------
+git_verify.md
+
+# ---------------------------------------------------------------------------
+# Secrets. Nothing matching these may ever reach the remote.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Node / frontend
+# ---------------------------------------------------------------------------
+node_modules/
+.vite/
+frontend/dist/
+*.local
+
+# ---------------------------------------------------------------------------
+# Data. Downloaded corpora and uploads are large and reproducible; the
+# ingestion scripts fetch them on demand. Only the manifests are tracked.
+# ---------------------------------------------------------------------------
+# Note: data/* not data/. Git cannot re-include a path inside an excluded
+# directory, so excluding the contents rather than the directory itself is
+# what makes the negations below work.
+data/*
+!data/README.md
+!data/manifests/
+backend/data/
+*.zip
+*.parquet
+
+# Trained model artifacts are build outputs, not source. They are produced by
+# the training job and published as release assets.
+#
+# Anchored with a leading slash and a specific path. A bare "models/" would
+# also match src/fai/db/models/, silently excluding the entire ORM schema
+# from the repository.
+/artifacts/models/
+backend/artifacts/
+*.joblib
+*.onnx
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+requirements-audit.txt

@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1.7
+# Development image. The production frontend is a static bundle served by the
+# host platform (Vercel or Netlify) and is built by CI, not by this file.
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+COPY . .
+
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
