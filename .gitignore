@@ -6,8 +6,6 @@ git_verify.md
 # ---------------------------------------------------------------------------
 # Secrets. Nothing matching these may ever reach the remote.
 # ---------------------------------------------------------------------------
-.env
-.env.*
 !.env.example
 *.pem
 *.key
@@ -73,9 +71,9 @@ backend/artifacts/
 # ---------------------------------------------------------------------------
 # Editors and OS
 # ---------------------------------------------------------------------------
-.vscode/
 .idea/
 *.swp
 .DS_Store
 Thumbs.db
 requirements-audit.txt
+config.bat
