@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
 from fai.api.deps import ClientIp, CurrentUserDep, DbSession
@@ -89,6 +89,7 @@ class BudgetResponse(BaseModel):
 @limiter.limit("30/hour")
 async def explain(
     request: Request,
+    response: Response,
     payload: ExplainRequest,
     db: DbSession,
     current_user: CurrentUserDep,
@@ -132,6 +133,7 @@ async def explain(
 @limiter.limit("60/hour")
 async def ask(
     request: Request,
+    response: Response,
     payload: AskRequest,
     db: DbSession,
     current_user: CurrentUserDep,

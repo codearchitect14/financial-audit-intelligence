@@ -61,12 +61,22 @@ cp .env.example .env
 uv sync --extra dev
 uv run alembic upgrade head
 
-# 4. Run
+# 4. Run the API
 uv run uvicorn fai.main:app --reload
+```
+
+In a second terminal:
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
 ```
 
 Then:
 
+- Application: <http://localhost:5173>
 - API docs: <http://localhost:8000/docs>
 - Liveness: <http://localhost:8000/api/v1/health>
 - Readiness: <http://localhost:8000/api/v1/health/ready>
@@ -93,6 +103,39 @@ uv run alembic check         # models and migrations agree
 
 `pytest` runs without a database: tests that need one are marked `integration` and
 skip themselves when none is reachable. Start the database to run the full suite.
+
+```bash
+cd frontend
+npm run lint        # ESLint, including accessibility rules
+npm run typecheck   # TypeScript
+npm run test        # Vitest
+npm run build       # production build
+npm run e2e         # Playwright, needs the API running
+```
+
+The Playwright journey needs the API started with `RATE_LIMIT_ENABLED=false`;
+see [docs/frontend.md](docs/frontend.md).
+
+---
+
+## Loading data
+
+The application starts with an empty database. Ingestion, scoring, and indexing
+are batch jobs, not something the web service does.
+
+```bash
+cd backend
+
+# 1. Ingest a quarter of SEC filings. Set SEC_USER_AGENT to a real contact
+#    address first: the SEC refuses requests without one.
+uv run python ../scripts/ingest.py 2023q1
+
+# 2. Run the detectors and write flags. No LLM is involved.
+uv run python ../scripts/analyze.py --benford
+
+# 3. Embed uploaded documents for semantic search.
+uv run python ../scripts/index_documents.py
+```
 
 ---
 
@@ -138,6 +181,9 @@ scripts/         data ingestion and batch jobs
 | [docs/data-model.md](docs/data-model.md) | Schema, tenancy rules, and why each decision was made |
 | [docs/data-pipeline.md](docs/data-pipeline.md) | Datasets, ingestion, and the fraud-label merge |
 | [docs/llm-strategy.md](docs/llm-strategy.md) | Token minimisation, caching, provider failover |
+| [docs/frontend.md](docs/frontend.md) | React application, accessibility, build gotchas |
+| [docs/security.md](docs/security.md) | OWASP review, data handling, known gaps |
+| [docs/deployment.md](docs/deployment.md) | Neon, Render, Vercel runbook and rollback |
 | [docs/development.md](docs/development.md) | Local setup, conventions, troubleshooting |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, commits, review expectations |
 
@@ -151,17 +197,38 @@ production.
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Project setup, schema, CI, containerisation | **Complete** |
-| 1 | Data pipeline (SEC DERA, UCI, AAER merge) | Not started |
-| 2 | Core backend APIs and authentication | Not started |
-| 3 | Anomaly detection engine | Not started |
-| 4 | Embeddings and semantic search | Not started |
-| 5 | LLM integration layer | Not started |
-| 6 | Risk scoring and report generation | Not started |
-| 7 | Frontend | Not started |
-| 8 | Security hardening and full test coverage | Not started |
-| 9 | Deployment | Not started |
+| 1 | Data pipeline (SEC DERA, UCI, AAER merge) | **Complete** |
+| 2 | Core backend APIs and authentication | **Complete** |
+| 3 | Anomaly detection engine | **Complete** |
+| 4 | Embeddings and semantic search | **Complete** |
+| 5 | LLM integration layer | **Complete** |
+| 6 | Risk scoring and report generation | **Complete** |
+| 7 | Frontend (marketing site and dashboard) | **Complete** |
+| 8 | Security hardening and test coverage | **Complete** |
+| 9 | Deployment | **Configs and runbook complete; the deploy itself requires your accounts** |
 
-Phase 0 delivers the full 13-table schema, a verified reversible migration, the
-application skeleton with structured logging and a consistent error envelope, a
-containerised Postgres with pgvector, and a CI pipeline running lint, strict type
-checking, tests, migration-drift detection, dependency auditing, and secret scanning.
+### Test coverage
+
+| Suite | Count |
+|---|---|
+| Backend (pytest) | 341 |
+| Frontend (Vitest) | 67 |
+| End to end (Playwright) | 16 |
+
+### What Phase 9 does and does not include
+
+`infra/deploy/` contains a Render blueprint, a Vercel config, and a Netlify
+config, and [docs/deployment.md](docs/deployment.md) is a step-by-step runbook
+with a post-deployment checklist and a rollback procedure.
+
+The deployment itself is not done, and cannot be done from this repository: it
+needs Neon, Render, and Vercel accounts, and secrets that must never be
+committed. Follow the runbook with your own credentials.
+
+### Known gaps
+
+Documented honestly in [docs/security.md](docs/security.md#4-known-gaps). The
+ones most likely to matter: no per-organization model quota, no virus scanning
+on uploads, rate limit state is in-process so it does not survive scaling out,
+and PDF text extraction is not implemented (PDFs upload and store, but index as
+zero chunks).

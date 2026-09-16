@@ -103,6 +103,39 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
+    async def security_headers(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Attach defensive headers to every response.
+
+        The frontend host sets its own headers for the HTML document; these
+        cover the API, which is reachable directly and serves one thing a
+        browser will render: an exported report.
+        """
+        response = await call_next(request)
+
+        # Stops a browser second-guessing a declared content type, which is how
+        # a text/plain upload gets executed as script.
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        # The API has no UI to frame, and a report export must not be framed.
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        # An exported report is the only HTML this service returns. It needs no
+        # script, no framing, and no outbound connections of its own.
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
+            "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+        )
+        if settings.is_production:
+            # Only in production: sending HSTS from a local http server would
+            # pin the browser to https for localhost and break development.
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+    @app.middleware("http")
     async def request_context(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:

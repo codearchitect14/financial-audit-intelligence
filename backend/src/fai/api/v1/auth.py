@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Request, status
+from fastapi import APIRouter, Header, Request, Response, status
 from sqlalchemy import select
 
 from fai.api.deps import ClientIp, CurrentUserDep, DbSession, RequireAdmin
@@ -40,6 +40,7 @@ UserAgent = Annotated[str | None, Header(alias="User-Agent")]
 @limiter.limit("5/hour")
 async def register(
     request: Request,
+    response: Response,
     payload: RegisterRequest,
     db: DbSession,
     ip: ClientIp,
@@ -68,6 +69,7 @@ async def register(
 @limiter.limit("10/minute")
 async def login(
     request: Request,
+    response: Response,
     payload: LoginRequest,
     db: DbSession,
     ip: ClientIp,
@@ -88,6 +90,7 @@ async def login(
 @limiter.limit("30/minute")
 async def refresh(
     request: Request,
+    response: Response,
     payload: RefreshRequest,
     db: DbSession,
     ip: ClientIp,

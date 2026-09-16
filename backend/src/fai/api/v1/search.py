@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from fai.api.deps import CurrentUserDep, DbSession
@@ -45,6 +45,7 @@ class SearchResponse(BaseModel):
 @limiter.limit("120/minute")
 async def search(
     request: Request,
+    response: Response,
     db: DbSession,
     current_user: CurrentUserDep,
     q: Annotated[str, Query(min_length=1, max_length=MAX_QUERY_LENGTH)],

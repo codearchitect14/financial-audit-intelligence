@@ -1,0 +1,61 @@
+# Render blueprint for the API.
+#
+# Apply with: render blueprint launch, or point Render at this file from the
+# dashboard. Secrets are marked sync:false and must be set in the Render UI;
+# committing them here would put them in git history permanently.
+services:
+  - type: web
+    name: fai-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./infra/Dockerfile.api
+    dockerContext: ./backend
+    healthCheckPath: /api/v1/health
+
+    # Migrations run before the new instance takes traffic. Running them from
+    # the application start-up would race when more than one instance boots.
+    preDeployCommand: alembic upgrade head
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+
+      # Generated once by Render and kept stable across deploys. Never set by
+      # hand, and never committed.
+      - key: JWT_SECRET_KEY
+        generateValue: true
+
+      # Set in the dashboard. sync:false means Render will not read it from
+      # this file and will prompt instead.
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: LLM_DAILY_CALL_BUDGET
+        value: "900"
+      - key: EMBEDDING_MODEL
+        value: BAAI/bge-small-en-v1.5
+      - key: EMBEDDING_DIMENSIONS
+        value: "384"
+
+      # Free-tier instances get roughly 512MB. One worker, because the ONNX
+      # embedding model is loaded per worker and two would not fit.
+      - key: WEB_CONCURRENCY
+        value: "1"
+
+    # The free plan has no persistent disk. Uploads therefore do not survive a
+    # restart; see docs/deployment.md for the object-storage note.

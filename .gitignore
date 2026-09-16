@@ -38,6 +38,12 @@ node_modules/
 .vite/
 frontend/dist/
 *.local
+# Playwright output. Reports and traces are build artifacts, published by
+# CI on failure rather than tracked.
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
 
 # ---------------------------------------------------------------------------
 # Data. Downloaded corpora and uploads are large and reproducible; the

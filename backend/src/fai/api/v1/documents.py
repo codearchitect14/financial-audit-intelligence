@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile, status
 from sqlalchemy import func, select
 
 from fai.api.deps import ClientIp, CurrentUserDep, DbSession, UploadRoot
@@ -47,6 +47,7 @@ async def _with_chunk_count(db: DbSession, document: Document) -> DocumentRespon
 @limiter.limit("60/hour")
 async def upload_document(
     request: Request,
+    response: Response,
     db: DbSession,
     current_user: CurrentUserDep,
     ip: ClientIp,

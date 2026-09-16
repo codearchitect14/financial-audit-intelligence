@@ -68,6 +68,7 @@ class ExportFormatsResponse(BaseModel):
 @limiter.limit("20/hour")
 async def generate(
     request: Request,
+    response: Response,
     payload: GenerateReportRequest,
     db: DbSession,
     current_user: CurrentUserDep,
