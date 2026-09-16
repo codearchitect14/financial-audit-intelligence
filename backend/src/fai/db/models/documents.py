@@ -99,6 +99,24 @@ class DocumentChunk(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
         UniqueConstraint("document_id", "chunk_index", name="uq_chunk_document_index"),
+        # HNSW rather than IVFFlat: IVFFlat has to be built against existing
+        # data to form its clusters, so it cannot usefully be created on an
+        # empty table and degrades as the distribution shifts. HNSW builds
+        # incrementally and needs no retraining.
+        #
+        # The operator class must match the distance operator used by the
+        # search query. An index built for a different metric is silently
+        # ignored by the planner, which presents as "pgvector is slow" rather
+        # than as a mistake.
+        Index(
+            "ix_document_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+            postgresql_with={"m": 16, "ef_construction": 64},
+        ),
+        # Every search filters by tenant before ranking.
+        Index("ix_document_chunks_org_document", "organization_id", "document_id"),
     )
 
     document_id: Mapped[uuid.UUID] = mapped_column(
